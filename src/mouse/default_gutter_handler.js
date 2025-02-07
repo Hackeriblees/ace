@@ -15,7 +15,7 @@ var lang = require("../lib/lang");
 function GutterHandler(mouseHandler) {
     var editor = mouseHandler.editor;
     var gutter = editor.renderer.$gutterLayer;
-    var tooltip = new GutterTooltip(editor);
+    var tooltip = new GutterTooltip(editor, true);
 
     mouseHandler.editor.setDefaultHandler("guttermousedown", function(e) {
         if (!editor.isFocused() || e.getButton() != 0)
@@ -71,8 +71,8 @@ function GutterHandler(mouseHandler) {
                 var gutterElement = gutterCell.element.querySelector(".ace_gutter_annotation");
                 var rect = gutterElement.getBoundingClientRect();
                 var style = tooltip.getElement().style;
-                style.left = rect.right + "px";
-                style.top = rect.bottom + "px";
+                style.left = (rect.right - 5) + "px";
+                style.top = (rect.bottom - 3) + "px";
             } else {
                 moveTooltip(mouseEvent);
             }
@@ -105,36 +105,58 @@ function GutterHandler(mouseHandler) {
             return;
         tooltipTimeout = setTimeout(function() {
             tooltipTimeout = null;
-            if (mouseEvent && !mouseHandler.isMousePressed)
+            if (mouseEvent && !mouseHandler.isMousePressed) {
                 showTooltip();
-            else
-                hideTooltip();
+            }
         }, 50);
     });
 
     event.addListener(editor.renderer.$gutter, "mouseout", function(e) {
         mouseEvent = null;
-        if (!tooltip.isOpen || tooltipTimeout)
+        if (!tooltip.isOpen)
             return;
 
         tooltipTimeout = setTimeout(function() {
             tooltipTimeout = null;
+            if (!e.relatedTarget || tooltip.getElement().contains(e.relatedTarget)) {
+                return;
+            }
             hideTooltip();
         }, 50);
     }, editor);
     
     editor.on("changeSession", hideTooltip);
     editor.on("input", hideTooltip);
+    // event.addListener(document, "keydown", (event) => {
+    //     if (event.key === "Escape") {
+    //         hideTooltip();
+    //     }
+    // });
 }
 
 exports.GutterHandler = GutterHandler;
 
 class GutterTooltip extends Tooltip {
-    constructor(editor) {
+    constructor(editor, isHover = false) {
         super(editor.container);
         this.editor = editor;
         /**@type {Number | Undefined}*/
         this.visibleTooltipRow;
+        var el = this.getElement();
+        el.style.pointerEvents = "auto";
+        if (isHover) {
+            this.onMouseOut = this.onMouseOut.bind(this);
+            el.addEventListener("mouseout", this.onMouseOut);
+        }
+    }
+
+    onMouseOut(e) {
+        if (!this.isOpen) return;
+
+        if (!e.relatedTarget || this.getElement().contains(e.relatedTarget)) return;
+
+        if (e && e.currentTarget.contains(e.relatedTarget)) return;
+        this.hideTooltip();
     }
 
     setPosition(x, y) {
